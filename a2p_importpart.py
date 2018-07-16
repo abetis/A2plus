@@ -436,6 +436,46 @@ class PartMoverSelectionObserver:
         view = FreeCADGui.activeDocument().activeView()
         PartMover( view, obj )
 
+class PartMoverConstrained:
+    def __init__(self, view, obj):
+        self.obj = obj
+        self.initialPostion = self.obj.Placement.Base
+        self.copiedObject = False
+        self.view = view
+        self.callbackMove = self.view.addEventCallback("SoLocation2Event",self.moveMouse)
+        self.callbackClick = self.view.addEventCallback("SoMouseButtonEvent",self.clickMouse)
+        self.callbackKey = self.view.addEventCallback("SoKeyboardEvent",self.KeyboardEvent)
+    def moveMouse(self, info):
+        newPos = self.view.getPoint( *info['Position'] )
+        self.obj.Placement.Base = newPos
+        solversystem.solveConstraints(FreeCAD.ActiveDocument)
+    def removeCallbacks(self):
+        self.view.removeEventCallback("SoLocation2Event",self.callbackMove)
+        self.view.removeEventCallback("SoMouseButtonEvent",self.callbackClick)
+        self.view.removeEventCallback("SoKeyboardEvent",self.callbackKey)
+    def clickMouse(self, info):
+        if info['Button'] == 'BUTTON1' and info['State'] == 'DOWN':
+            if not info['ShiftDown'] and not info['CtrlDown']:
+                self.removeCallbacks()
+    def KeyboardEvent(self, info):
+        if info['State'] == 'UP' and info['Key'] == 'ESCAPE':
+            if not self.copiedObject:
+                self.obj.Placement.Base = self.initialPostion
+            else:
+                FreeCAD.ActiveDocument.removeObject(self.obj.Name)
+            self.removeCallbacks()
+
+class PartMoverConstrainedSelectionObserver:
+    def __init__(self):
+        FreeCADGui.Selection.addObserver(self)
+        FreeCADGui.Selection.removeSelectionGate()
+    def addSelection( self, docName, objName, sub, pnt ):
+        FreeCADGui.Selection.removeObserver(self)
+        obj = FreeCAD.ActiveDocument.getObject(objName)
+        view = FreeCADGui.activeDocument().activeView()
+        doc = FreeCADGui.activeDocument()
+        PartMoverConstrained( view, obj )
+
 class a2p_MovePartCommand:
     def Activated(self):
         selection = [s for s in FreeCADGui.Selection.getSelectionEx() if s.Document == FreeCAD.ActiveDocument ]
@@ -452,7 +492,24 @@ class a2p_MovePartCommand:
             'ToolTip': 'move part  ( shift+click to copy )'
             }
 
+class a2p_MovePartConstrainedCommand:
+    def Activated(self):
+        selection = [s for s in FreeCADGui.Selection.getSelectionEx() if s.Document == FreeCAD.ActiveDocument ]
+        if len(selection) == 1:
+            PartMoverConstrained(FreeCADGui.activeDocument().activeView(), selection[0].Object )
+        else:
+            PartMoverConstrainedSelectionObserver()
+
+    def GetResources(self):
+        return {
+            #'Pixmap' : ':/assembly2/icons/Draft_Move.svg',
+            'Pixmap'  : a2plib.pathOfModule()+'/icons/a2p_Draft_Move.svg',
+            'MenuText': 'move constrained',
+            'ToolTip': 'move part while recalculating the constraints'
+            }
+
 FreeCADGui.addCommand('a2p_movePart', a2p_MovePartCommand())
+FreeCADGui.addCommand('a2p_movePartConstrained', a2p_MovePartConstrainedCommand())
 
 
 

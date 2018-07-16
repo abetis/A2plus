@@ -54,6 +54,7 @@ class a2pWorkbench (Workbench):
             'a2p_ImportPart',
             'a2p_updateImportedParts',
             'a2p_movePart',
+            'a2p_movePartConstrained',
             'a2p_duplicatePart',
             'a2p_editImportedPart',
             'a2p_PointIdentityConnectionCommand',

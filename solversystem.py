@@ -590,7 +590,9 @@ class SolverSystem():
         return maxPosError, maxSpinError
                 
     def solveSystem(self,doc):
+        startTime = int(round(time.time() * 1000))
         self.loadSystem(doc)
+        loadTime = int(round(time.time() * 1000))
         self.stepCount = 0
         systemSolved = False
         while True:
@@ -606,9 +608,15 @@ class SolverSystem():
                 break
             if (self.stepCount >= SOLVER_MAXSTEPS):
                 break
+
+        totalTime = int(round(time.time() * 1000))
+
         FreeCAD.Console.PrintMessage( "Max positionerror: %f\n" %  poserror )
         FreeCAD.Console.PrintMessage( "Max spinerror: %f\n" %  spinerror )
         FreeCAD.Console.PrintMessage( "Total steps used: %d\n" %  self.stepCount )
+        FreeCAD.Console.PrintMessage( "LoadTime (ms): %d\n" % (loadTime - startTime) )
+        FreeCAD.Console.PrintMessage( "CalcTime (ms): %d\n" % (totalTime - loadTime) )
+        FreeCAD.Console.PrintMessage( "TotalTime (ms): %d\n" % (totalTime - startTime) )
 
         if systemSolved:
             self.solutionToParts(doc)
