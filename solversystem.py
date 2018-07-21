@@ -129,8 +129,8 @@ class SolverSystem():
             rig1.dependencies.append(dep1)
             rig2.dependencies.append(dep2)
             
-            dep1.initData(doc, self)
-            dep2.initData(doc, self)
+            #dep1.initData(doc, self)
+            #dep2.initData(doc, self)
             FreeCAD.Console.PrintMessage("Load connecting between {} and {}\n".format(rig1.label, rig2.label))
 
 
@@ -294,6 +294,8 @@ class SolverSystem():
             for w in workList:
                 w.calcMoveData(doc, self)
                 w.move(doc)
+                w.applySolution(doc, self)
+                FreeCADGui.updateGui()
 
                 if w.maxPosError > maxPosError:
                     maxPosError = w.maxPosError
@@ -348,17 +350,17 @@ class Rigid():
     def initDependencies(self, doc, solver, workList):
         for dep in self.dependencies:
             # Already initialized
-            #TODO:if dep.Type is not None: continue
+            if dep.Type is not None: continue
             # Depended rigid is not int working list yet
-            #FreeCAD.Console.PrintMessage("Init dependency for {}, depended: {} ".format(self.label, dep.dependedRigid.label))
+            FreeCAD.Console.PrintMessage("Init dependency for {}, depended: {} ".format(self.label, dep.dependedRigid.label))
             if dep.dependedRigid not in workList:
-                #FreeCAD.Console.PrintMessage("- not in working list\n")
+                FreeCAD.Console.PrintMessage("- not in working list\n")
                 continue
             dep.initData(doc, solver)
             dep.Enabled = True
             dep.foreignDependency.initData(doc, solver)
             dep.foreignDependency.Enabled = True
-            #FreeCAD.Console.PrintMessage("- enabled\n")
+            FreeCAD.Console.PrintMessage("- enabled\n")
 
     # The function only sets parentship for childrens that are distant+1 from fixed rigid
     # The function should be called in a loop with increased distance until it return False
@@ -435,9 +437,11 @@ class Rigid():
         self.placement = pl.multiply(self.placement)
         self.spinCenter = pl.multVec(self.spinCenter)
         for dep in self.dependencies:
+            #FreeCAD.Console.PrintMessage("ApplyPlacement dep {}-{}\n".format(dep.currentRigid.label, dep.dependedRigid.label))
             if dep.Type is None or not dep.Enabled: 
-                FreeCAD.Console.PrintMessage("ApplyPlacement, Skipping dep {}-{}\n".format(dep.currentRigid.label, dep.dependedRigid.label))
+                #FreeCAD.Console.PrintMessage("ApplyPlacement, Skipping dep {}-{}\n".format(dep.currentRigid.label, dep.dependedRigid.label))
                 continue
+
             if dep.refPoint != None:
                 dep.refPoint = pl.multVec(dep.refPoint)
             if dep.refAxisEnd != None:
@@ -473,7 +477,7 @@ class Rigid():
         self.maxPosError = 0.0
         for dep in self.dependencies:
             if dep.Type is None or not dep.Enabled:
-                FreeCAD.Console.PrintMessage("CalcMoveData, Skipping dep {}-{}\n".format(dep.currentRigid.label, dep.dependedRigid.label))
+                #FreeCAD.Console.PrintMessage("CalcMoveData, Skipping dep {}-{}\n".format(dep.currentRigid.label, dep.dependedRigid.label))
                 continue
 
             if dep.Type == "pointIdentity" or dep.Type == "sphereCenterIdent":
@@ -572,10 +576,7 @@ class Rigid():
             self.moveVectorSum = Base.Vector(0,0,0)
         #
         #compute rotation caused by refPoint-attractions and axes mismatch
-        if (
-            len(depMoveVectors) > 0 and
-            self.spinCenter != None
-            ):
+        if(len(depMoveVectors) > 0 and self.spinCenter != None):
             self.spin = Base.Vector(0,0,0)
             for i in range(0,len(depRefPoints)):
                 vec1 = depRefPoints[i].sub(self.spinCenter) # 'aka Radius'
@@ -587,7 +588,7 @@ class Rigid():
             self.maxAxisError = 0.0
             for dep in self.dependencies:
                 if dep.Type is None or not dep.Enabled:
-                    FreeCAD.Console.PrintMessage("CalcModeData2, Skipping dep {}-{}\n".format(dep.currentRigid.label, dep.dependedRigid.label))
+                    #FreeCAD.Console.PrintMessage("CalcModeData2, Skipping dep {}-{}\n".format(dep.currentRigid.label, dep.dependedRigid.label))
                     continue
                 if (
                     dep.Type == "angledPlanes"
@@ -685,6 +686,7 @@ class Rigid():
             if mov.Length > 1e-8:
                 pl = FreeCAD.Placement()
                 pl.move(mov)
+                FreeCAD.Console.PrintMessage("{} move len: {}\n".format(self.label, mov.Length))
                 self.applyPlacementStep(pl)
         #    
         #Rotate the rigid...
@@ -694,6 +696,7 @@ class Rigid():
             ):
             
             spinAngle = self.spin.Length
+            FreeCAD.Console.PrintMessage("{} spin: {}\n".format(self.label, self.spin.Length))
             if spinAngle>15.0: spinAngle=15.0 # do not accept more degrees
             if spinAngle> 1e-6:
                 try:
@@ -861,6 +864,12 @@ class Dependency():
                 offsetAdjustVec.multiply(dep2.offset)
                 dep2.refPoint = dep2.refPoint.add(offsetAdjustVec)
                 dep2.refAxisEnd = dep2.refAxisEnd.add(offsetAdjustVec)
+                FreeCAD.Console.PrintMessage("adjusting: {}\n".format(offsetAdjustVec.Length))
+            #FreeCAD.Console.PrintMessage("dep1: {}\n".format(vars(dep1)))
+            #FreeCAD.Console.PrintMessage("dep2: {}\n".format(vars(dep2)))
+            mv = dep1.refPoint.sub(dep2.refPoint)
+            FreeCAD.Console.PrintMessage("mvlen: {}\n".format(mv.Length))
+
             
         if c.Type == "planesParallel":
             dep1.refType = "pointNormal"
